@@ -1,14 +1,24 @@
 import os
 import PIL
 import torch
+import urllib
+import tarfile
 import imageio
 import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 class Facades(datasets.vision.VisionDataset):
-    def __init__(self, root, folder, transform=None):
+    def __init__(self, root, folder, download=True, transform=None):
         super(Facades, self).__init__(root=root, transform=transform)
+
+        if download:
+            if not os.path.isdir(root):
+                os.mkdir(root)
+            path = os.path.join(root, "facades.tar.gz")
+            urllib.request.urlretrieve("http://efrosgans.eecs.berkeley.edu/pix2pix/datasets/facades.tar.gz", path)
+            with tarfile.open(path) as tar:
+                tar.extractall(root)
 
 #        self.files = {"train":[], "test":[], "val":[]}
 #        for key in ["train", "test", "val"]:
