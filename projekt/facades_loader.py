@@ -16,7 +16,8 @@ class Facades(datasets.vision.VisionDataset):
             if not os.path.isdir(root):
                 os.mkdir(root)
             path = os.path.join(root, "facades.tar.gz")
-            urllib.request.urlretrieve("http://efrosgans.eecs.berkeley.edu/pix2pix/datasets/facades.tar.gz", path)
+            if not os.path.isfile(path):
+                urllib.request.urlretrieve("http://efrosgans.eecs.berkeley.edu/pix2pix/datasets/facades.tar.gz", path)
             with tarfile.open(path) as tar:
                 tar.extractall(root)
 
