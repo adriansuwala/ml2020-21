@@ -37,8 +37,7 @@ class Facades(datasets.vision.VisionDataset):
         img = sample.crop((0, 0, 256, 256))
         mask = sample.crop((256, 0, 512, 256))
         if self.transform:
-            img = self.transform(img)
-            mask = self.transform(mask)
+            return self.transform(img, mask)
         return img, mask
 
     def __len__(self):
