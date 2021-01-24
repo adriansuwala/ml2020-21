@@ -49,3 +49,9 @@ class Maps(DownloadableABVisionDataset):
         super(Maps, self).__init__(root=root, transform=transform, download=download, folder=folder,
                 sizeA=(600,600), sizeB=(600,600), archive_name="maps", archive_ext="tar.gz",
                 archive_url="http://efrosgans.eecs.berkeley.edu/pix2pix/datasets/maps.tar.gz")
+
+class Cityscapes(DownloadableABVisionDataset):
+    def __init__(self, root, folder, download=True, transform=None):
+        super(Cityscapes, self).__init__(root=root, transform=transform, download=download, folder=folder,
+                sizeA=(256,256), sizeB=(256,256), archive_name="cityscapes", archive_ext="tar.gz",
+                archive_url="http://efrosgans.eecs.berkeley.edu/pix2pix/datasets/cityscapes.tar.gz")
