@@ -123,6 +123,8 @@ class UNetGenerator(nn.Module):
     def __init__(self, optim, lambd, bnorm_track_stats=False, explicit_instancenorm=False, **kwargs):
         super(UNetGenerator, self).__init__()
 
+        self.track_stats = bnorm_track_stats
+        self.explicit_instancenorm = explicit_instancenorm
         normalization = nn.BatchNorm2d if not explicit_instancenorm else nn.InstanceNorm2d
 
         # encoder
@@ -221,11 +223,13 @@ class UNetGenerator(nn.Module):
     
         for block in [self.en_1, self.en_2, self.en_3, self.en_4, self.en_5, self.en_6, self.en_7, self.en_8]:
             for layer in block:
-                if type(layer) not in [nn.LeakyReLU]:
+                if type(layer) not in [nn.LeakyReLU, nn.InstanceNorm2d] and \
+                        (not self.track_stats or type(layer) != nn.BatchNorm2d):
                     torch.nn.init.normal_(layer.weight, 0, 0.02)
         for block in [self.de_1, self.de_2, self.de_3, self.de_4, self.de_5, self.de_6, self.de_7, self.de_8]:
             for layer in block:
-                if type(layer) not in [nn.ReLU, nn.Dropout, nn.Tanh]:
+                if type(layer) not in [nn.ReLU, nn.Dropout, nn.Tanh, nn.InstanceNorm2d] and \
+                        (not self.track_stats or type(layer) != nn.BatchNorm2d):
                     torch.nn.init.normal_(layer.weight, 0, 0.02)
         
         self.l1 = torch.nn.L1Loss()
