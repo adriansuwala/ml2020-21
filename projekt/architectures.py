@@ -103,17 +103,17 @@ class EncoderDecoderGenerator(nn.Module):
         x = self.decoder(x)
         return x
     
-    def loss(self, dis, y, target):
-        x = self(y)
-        p = dis(x, y)
+    def loss(self, dis, cond, target_label, target_img):
+        x = self(cond)
+        p = dis(x, cond)
         if self.lambd == 0:
-            return dis.loss(p, target)
+            return dis.loss(p, target_label)
         else:
-            return dis.loss(p, target) + self.lambd * self.l1(p, target)
+            return dis.loss(p, target_label) + self.lambd * self.l1(x, target_img)
 
-    def update(self, dis, y, device="cpu"):
+    def update(self, dis, cond, target_label, target_img):
         self.optim.zero_grad()
-        loss = self.loss(dis, y, torch.ones(y.shape[0], 1).to(device))
+        loss = self.loss(dis, cond, target_label, target_img)
         loss.backward()
         self.optim.step()
         return loss
@@ -260,26 +260,31 @@ class UNetGenerator(nn.Module):
         z = self.de_8(torch.cat((z, x1), dim=1))
         return z
     
-    def loss(self, dis, y, target):
-        x = self(y)
-        p = dis(x, y)
+    def loss(self, dis, cond, target_label, target_img):
+        x = self(cond)
+        p = dis(x, cond)
         if self.lambd == 0:
-            return dis.loss(p, target)
+            return dis.loss(p, target_label)
         else:
-            return dis.loss(p, target) + self.lambd * self.l1(p, target)
+            return dis.loss(p, target_label) + self.lambd * self.l1(x, target_img)
 
-    def update(self, dis, y, device="cpu"):
+    def update(self, dis, cond, target_label, target_img):
         self.optim.zero_grad()
-        loss = self.loss(dis, y, torch.ones(y.shape[0], 1).to(device))
+        loss = self.loss(dis, cond, target_label, target_img)
         loss.backward()
         self.optim.step()
         return loss
 
 
 class PatchGANDiscriminator(nn.Module):
-    def __init__(self, optim, criterion, **kwargs):
+    def __init__(self, optim, criterion, avg_outputs=True, **kwargs):#, receptive_field, **kwargs):
         super(PatchGANDiscriminator, self).__init__()
         self.criterion = criterion
+        self.avg_outputs = avg_outputs
+#        self.receptive_field = receptive_field
+#
+#        self.layers = [nn.Conv2d(6, 64, 4, stride=2, padding=1)]
+#        receptive_field = (receptive_field - 4) // 2 + 1
         
         # 70x70
         # C64-C128-C256-C512
@@ -287,8 +292,7 @@ class PatchGANDiscriminator(nn.Module):
         # compute that for every layer starting with last one
         # (receptive field for next layer is output for previous layer)
         
-        # 6 input channels because mask is concatenated (no idea if this is right,
-        # just an idea since there is nothing about what to do with conditional input in the paper)
+        # 6 input channels because conditioning image is concatenated channel-wise
         self.model = nn.Sequential(
             nn.Conv2d(6, 64, 4, stride=2, padding=1),
             nn.LeakyReLU(0.2, True),
@@ -318,18 +322,19 @@ class PatchGANDiscriminator(nn.Module):
     def forward(self, x, y):
         x = torch.cat((x, y), dim=1)
         x = self.model(x)
-        x = torch.mean(x, dim=(2,3))
+        if self.avg_outputs:
+            x = torch.mean(x, dim=(2,3))
         return x
 
     def loss(self, x, y):
         return self.criterion(x, y)
 
-    def update(self, true_sample, gen_sample, cond, device="cpu"):
+    def update(self, true_sample, gen_sample, cond, real_label, fake_label):
         self.optim.zero_grad()
 
-        true_loss = self.loss(self(true_sample, cond), torch.ones(true_sample.shape[0], 1).to(device))
+        true_loss = self.loss(self(true_sample, cond), real_label)
         prob = self(gen_sample, cond)
-        false_loss = self.loss(prob, torch.zeros(gen_sample.shape[0], 1).to(device))
+        false_loss = self.loss(prob, fake_label)
 
         # division by 2 to slow down D
         total_loss = (true_loss + false_loss) / 2

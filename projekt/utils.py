@@ -105,6 +105,14 @@ def train(gen, dis, loader, epochs, device="cpu", fw_snapshot=None, model_snapsh
     gen.train()
     dis.train()
 
+    real_label = torch.ones(loader.batch_size, 1).to(device)
+    fake_label = torch.zeros(loader.batch_size, 1).to(device)
+    if not dis.avg_outputs:
+        dummy_input = torch.randn(1, 3, 256, 256).to(device)
+        out_shape = dis(dummy_input, dummy_input).squeeze(0)
+        real_label = torch.ones(loader.batch_size, *out_shape.shape).to(device)
+        fake_label = torch.zeros(loader.batch_size, *out_shape.shape).to(device)
+
     try:
         for i in range(epochs):
             pbar = tqdm(enumerate(iter(loader)), total=len(loader))
@@ -116,12 +124,12 @@ def train(gen, dis, loader, epochs, device="cpu", fw_snapshot=None, model_snapsh
                 batch_prob, batch_dloss, batch_gloss = 0, 0, 0
                 real, cond = (imgB, imgA) if A2B else (imgA, imgB)
                 for _ in range(k):
-                    l, p = dis.update(real, gen(cond).to(device), cond, device=device)
+                    l, p = dis.update(real, gen(cond).to(device), cond, real_label, fake_label)
                     batch_dloss += l
                     batch_prob += p
 
                 for _ in range(k2):
-                    batch_gloss += gen.update(dis, cond, device=device)
+                    batch_gloss += gen.update(dis, cond, real_label, real)
                 batch_prob = float(torch.mean(batch_prob) / k)
                 batch_dloss = float(torch.mean(batch_dloss) / k)
                 batch_gloss = float(torch.mean(batch_gloss) / k2)
